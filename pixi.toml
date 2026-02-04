@@ -1,0 +1,11 @@
+[workspace]
+authors = ["Ali Khan <alik@robarts.ca>"]
+channels = ["conda-forge", "bioconda"]
+name = "analyze_zona_15T"
+platforms = ["linux-64"]
+version = "0.1.0"
+
+[tasks]
+
+[dependencies]
+snakebids = ">=0.15.0,<0.16"

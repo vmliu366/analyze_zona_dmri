@@ -1,0 +1,12 @@
+bids_dir: /nfs/khan/datasets/histo2mri/derivatives/snakedwi
+
+pybids_inputs:
+  dwi:
+    filters:
+      suffix: dwi
+      extension: .nii.gz
+      datatype: dwi
+    wildcards: 
+      - subject
+      - session
+      
