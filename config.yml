@@ -10,3 +10,10 @@ pybids_inputs:
       - subject
       - session
 
+tracking:
+  select: 
+    - 5000
+    - 10000
+  algo:
+    - det
+    - prob
