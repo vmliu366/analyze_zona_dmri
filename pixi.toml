@@ -9,3 +9,4 @@ version = "0.1.0"
 
 [dependencies]
 snakebids = ">=0.15.0,<0.16"
+snakefmt = ">=0.11.3,<0.12"

@@ -20,6 +20,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/linux-64/bcrypt-5.0.0-py313h843e2db_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/bids-validator-1.14.7.post0-pyhd8ed1ab_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/bidsschematools-1.1.6-pyhcf101f3_0.conda
+      - conda: https://conda.anaconda.org/conda-forge/linux-64/black-24.10.0-py313h78bf25f_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/boutiques-0.5.31-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/brotli-python-1.2.0-py313hf159716_1.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/bzip2-1.0.8-hda65f42_8.conda
@@ -100,6 +101,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/linux-64/markupsafe-3.0.3-py313h3dea7bd_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/mdurl-0.1.2-pyhd8ed1ab_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/more-itertools-10.8.0-pyhcf101f3_1.conda
+      - conda: https://conda.anaconda.org/conda-forge/noarch/mypy_extensions-1.1.0-pyha770c72_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/nbformat-5.10.4-pyhd8ed1ab_1.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/ncurses-6.5-h2d0b736_3.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/nibabel-5.3.2-pyha770c72_1.conda
@@ -155,6 +157,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/smart_open-7.5.0-pyhcf101f3_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/smmap-5.0.2-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/bioconda/noarch/snakebids-0.15.0-pyhdfd78af_0.conda
+      - conda: https://conda.anaconda.org/bioconda/noarch/snakefmt-0.11.3-pyha6daafd_0.conda
       - conda: https://conda.anaconda.org/bioconda/noarch/snakemake-9.16.2-hdfd78af_1.conda
       - conda: https://conda.anaconda.org/bioconda/noarch/snakemake-interface-common-1.22.0-pyhd4c3c12_0.conda
       - conda: https://conda.anaconda.org/bioconda/noarch/snakemake-interface-executor-plugins-9.3.9-pyhdfd78af_0.tar.bz2
@@ -334,6 +337,21 @@ packages:
   license_family: MIT
   size: 160300
   timestamp: 1769169750501
+- conda: https://conda.anaconda.org/conda-forge/linux-64/black-24.10.0-py313h78bf25f_0.conda
+  sha256: cf9a47712ee5f086d7b88bdb2c7d475886213aab945c81d0be4c851ab2c11e18
+  md5: 2cb3d25fa279bf0661bc12c5fad99b76
+  depends:
+  - click >=8.0.0
+  - mypy_extensions >=0.4.3
+  - packaging >=22.0
+  - pathspec >=0.9
+  - platformdirs >=2
+  - python >=3.13,<3.14.0a0
+  - python_abi 3.13.* *_cp313
+  license: MIT
+  license_family: MIT
+  size: 397990
+  timestamp: 1728503903590
 - conda: https://conda.anaconda.org/conda-forge/noarch/boutiques-0.5.31-pyhd8ed1ab_0.conda
   sha256: 3e6a0b608682cb939b5be1be797a9b51ba533e4467746b8aff1190f4387de3aa
   md5: e1e45cfe51a331ea43e4746479e56eb2
@@ -1290,6 +1308,15 @@ packages:
   license_family: MIT
   size: 69210
   timestamp: 1764487059562
+- conda: https://conda.anaconda.org/conda-forge/noarch/mypy_extensions-1.1.0-pyha770c72_0.conda
+  sha256: 6ed158e4e5dd8f6a10ad9e525631e35cee8557718f83de7a4e3966b1f772c4b1
+  md5: e9c622e0d00fa24a6292279af3ab6d06
+  depends:
+  - python >=3.9
+  license: MIT
+  license_family: MIT
+  size: 11766
+  timestamp: 1745776666688
 - conda: https://conda.anaconda.org/conda-forge/noarch/nbformat-5.10.4-pyhd8ed1ab_1.conda
   sha256: 7a5bd30a2e7ddd7b85031a5e2e14f290898098dc85bea5b3a5bf147c25122838
   md5: bbe1963f1e47f594070ffe87cdf612ea
@@ -2011,6 +2038,17 @@ packages:
   license_family: MIT
   size: 84723
   timestamp: 1762975200506
+- conda: https://conda.anaconda.org/bioconda/noarch/snakefmt-0.11.3-pyha6daafd_0.conda
+  sha256: 26866da279db8716605cb642f117d71a76470c48b0b6c2c3c36362fbe7e4cf87
+  md5: a91426cd8092b1a26e47e98ab1629d12
+  depends:
+  - black >=24.3,<25.0
+  - click >=8.2.0
+  - python >=3.11
+  license: MIT
+  license_family: MIT
+  size: 33644
+  timestamp: 1769052610174
 - conda: https://conda.anaconda.org/bioconda/noarch/snakemake-9.16.2-hdfd78af_1.conda
   sha256: bfd946420bcf55a3deecc6c29b228a6d19041988188a4a8dff676e81dfe6533b
   md5: 08efb60cc7b895a7587832d4023a5a37
