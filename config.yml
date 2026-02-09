@@ -6,12 +6,14 @@ pybids_inputs:
       suffix: dwi
       extension: .nii.gz
       datatype: dwi
+      subject: CAD02
     wildcards: 
       - subject
       - session
 
 downsample_res:
   - 0p2mm
+#  - 0p4mm
   - 0p5mm
   - 1mm
   - 1p25mm
@@ -21,12 +23,12 @@ downsample_res:
 tracking:
   seedmask:
     - brain
-    - thFA0p3
+#    - thFA0p3
   select: 
     - 5000
   algo:
     - det
-    - prob
+#    - prob
 
 
 clustering:

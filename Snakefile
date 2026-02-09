@@ -148,6 +148,31 @@ rule brain_mask:
         "c3d {input} -otsu 3 -binarize {output}"
 
 
+rule downsample_mask:
+    input:
+        mask=bids(
+            root=root,
+            suffix="mask.nii",
+            desc="brain",
+            datatype="dwi",
+            **inputs["dwi"].wildcards,
+        ),
+    params:
+        voxel_size=lambda wildcards: str(wildcards.res).replace("p", "."),
+    output:
+        mask=bids(
+            root=root,
+            suffix="mask.nii",
+            res="{res}mm",
+            desc="brain",
+            datatype="dwi",
+            **inputs["dwi"].wildcards,
+        ),
+    shell:
+        "mrgrid {input.mask} regrid {output.mask} -voxel {params.voxel_size} -interp nearest"
+
+
+
 rule dwi2tensor:
     input:
         dwi=bids(root=root, suffix="dwi.mif", datatype="dwi", **inputs["dwi"].wildcards),
@@ -163,10 +188,26 @@ rule dwi2tensor:
     shell:
         "dwi2tensor {input.dwi} -mask {input.mask} {output.dt}"
 
+rule dwi2tensor_ds:
+    input:
+        dwi=bids(root=root, suffix="dwi.mif", res="{res}", datatype="dwi", **inputs["dwi"].wildcards),
+        mask=bids(
+            root=root,
+            suffix="mask.nii",res="{res}", 
+            desc="brain",
+            datatype="dwi",
+            **inputs["dwi"].wildcards,
+        ),
+    output:
+        dt=bids(root=root, suffix="dt.mif", res="{res}", datatype="dwi", **inputs["dwi"].wildcards),
+    shell:
+        "dwi2tensor {input.dwi} -mask {input.mask} {output.dt}"
+
+
 
 rule tensor2metric_scalars:
     input:
-        dt=bids(root=root, suffix="dt.mif", datatype="dwi", **inputs["dwi"].wildcards),
+        dt=bids(root=root, suffix="dt.mif", res="{res}",datatype="dwi", **inputs["dwi"].wildcards),
     params:
         opts=lambda wildcards: "-{metric_lower}".format(
             metric_lower=str(wildcards.metric).lower()
@@ -174,6 +215,7 @@ rule tensor2metric_scalars:
     output:
         metric=bids(
             root=root,
+            res="{res}",
             suffix="{metric,FA|ADC|AD|RD}.nii",
             datatype="dwi",
             **inputs["dwi"].wildcards,
@@ -184,10 +226,14 @@ rule tensor2metric_scalars:
 
 rule tensor2eigenvec:
     input:
-        dt=bids(root=root, suffix="dt.mif", datatype="dwi", **inputs["dwi"].wildcards),
+        dt=bids(root=root, suffix="dt.mif",
+                res="{res}",
+                datatype="dwi", **inputs["dwi"].wildcards),
     output:
         metric=bids(
-            root=root, suffix="V{num}.nii", datatype="dwi", **inputs["dwi"].wildcards
+            root=root, suffix="V{num}.nii",
+            res="{res}",
+            datatype="dwi", **inputs["dwi"].wildcards
         ),
     shell:
         "tensor2metric {input} -num {wildcards.num} -modulate none -vector {output}"
@@ -196,12 +242,14 @@ rule tensor2eigenvec:
 rule get_fa_mask:
     input:
         metric=bids(
-            root=root, suffix="FA.nii", datatype="dwi", **inputs["dwi"].wildcards
+            root=root, suffix="FA.nii",res="{res}", 
+            datatype="dwi", **inputs["dwi"].wildcards
         ),
     output:
         mask=bids(
             root=root,
             suffix="mask.nii",
+            res="{res}", 
             desc="thFA0p{th}",
             datatype="dwi",
             **inputs["dwi"].wildcards,
@@ -221,14 +269,14 @@ rule tracking:
         ),
         seed=bids(
             root=root,
-            suffix="mask.nii",
+            suffix="mask.nii",res="{res}", 
             desc="{seedmask}",
             datatype="dwi",
             **inputs["dwi"].wildcards,
         ),
         mask=bids(
             root=root,
-            suffix="mask.nii",
+            suffix="mask.nii",res="{res}", 
             desc="brain",
             datatype="dwi",
             **inputs["dwi"].wildcards,
@@ -297,7 +345,8 @@ rule sample_scalars_on_tck:
             **inputs["dwi"].wildcards,
         ),
         img=bids(
-            root=root, suffix="{scalar}.nii", datatype="dwi", **inputs["dwi"].wildcards
+            root=root, suffix="{scalar}.nii", res="{res}",
+            datatype="dwi", **inputs["dwi"].wildcards
         ),
     output:
         txt=bids(
@@ -320,16 +369,17 @@ rule make_coords_vol:
     """ x y z coords for mapping coordinate to tck scalar file. note: it's already in .tck itself, but 
     having them as volumes  then scalars just makes the workflow easier"""
     input:
-        b0=bids(root=root, suffix="b0.nii", datatype="dwi", **inputs["dwi"].wildcards),
+        fa=bids(root=root, suffix="FA.nii", res="{res}",datatype="dwi", **inputs["dwi"].wildcards),
     params:
         coord_pat=bids(
-            root=root, suffix="coord%d.nii", datatype="dwi", **inputs["dwi"].wildcards
+            root=root, suffix="coord%d.nii",res="{res}", datatype="dwi", **inputs["dwi"].wildcards
         ),
     output:
         coords=expand(
             bids(
                 root=root,
                 suffix="coord{i}.nii",
+                res="{res}",
                 datatype="dwi",
                 **inputs["dwi"].wildcards,
             ),
@@ -337,7 +387,7 @@ rule make_coords_vol:
             i=[0, 1, 2],
         ),
     shell:
-        "c3d {input.b0} -cmv -oo {params.coord_pat}"
+        "c3d {input} -cmv -oo {params.coord_pat}"
 
 
 rule concat_scalars:
