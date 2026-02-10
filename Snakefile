@@ -472,3 +472,22 @@ rule pca_kmeans:
 
 
 
+rule reslice_dseg_to_dwi:
+    """ uses existing itksnap rigid transform, may need non-linear for best match"""
+    input:
+        dseg = inputs['dseg'].path,
+        xfm = inputs['xfm_to_dwi'].path,
+        ref=bids(
+            root=root, suffix="b0.nii", 
+            datatype="dwi", **inputs["dwi"].wildcards
+        ),
+
+    output:
+        dseg=bids(
+            root=root, suffix="dseg.nii.gz",desc="{desc}", 
+            datatype="dwi", **inputs["dwi"].wildcards
+        ),
+    shell:
+        "antsApplyTransforms -d 3 -n NearestNeighbor -i {input.dseg} -t {input.xfm} -r {input.ref} -o {output.dseg}"
+
+
