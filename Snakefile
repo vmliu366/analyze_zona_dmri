@@ -14,6 +14,25 @@ inputs = generate_inputs(
 
 root = "results"
 
+NODE_START = list(map(int, config["connectome"]["node_start"]))
+NODE_END   = list(map(int, config["connectome"]["node_end"]))
+
+EDGE_PAIRS = [(s, e) for s in NODE_START for e in NODE_END]
+
+EDGEPAIR_STRS = [f"{a}-{b}" for a, b in EDGE_PAIRS]
+EDGEPAIR_DIR_TMPL = bids(
+    root=root,
+    suffix="edgepairs",
+    res="{res}",
+    seedmask="{seedmask}",
+    algo="{algo}",
+    select="{select}",
+    nodes="{nodes}",
+    datatype="dwi",
+    **inputs["dwi"].wildcards,
+)
+EDGEPAIR_TCK_TMPL = str(Path(EDGEPAIR_DIR_TMPL) / "edge-{edgepair}.tck")
+
 
 def sidecar(path: Path, new_suffix: str) -> Path:
     """
@@ -87,32 +106,40 @@ rule all:
         #     bids(
         #         root=root,
         #         suffix="bundles",
+        #         datatype="dwi",
         #         res="{res}",
         #         seedmask="{seedmask}",
         #         algo="{algo}",
         #         select="{select}",
-        #         nodes="NextBrain",
-        #         datatype="dwi",
+        #         nodes="{nodes}",
         #         **inputs["dwi"].wildcards,
         #     ),
         #     res=config["downsample_res"],
         #     seedmask=config["tracking"]["seedmask"],
-        #     algo=config["tracking"]["algo"],
         #     select=config["tracking"]["select"],
-        #     desc=list(inputs["dseg"].wildcards.get("desc", [])),
+        #     algo=config["tracking"]["algo"],
+        #     nodes=config["connectome"]["nodes"],
         # ),
-        # meshes=inputs["dwi"].expand(
-        #     bids(
-        #         root=root,
-        #         suffix="dseg.obj",
-        #         datatype="dwi",
-        #         desc="{desc}",
-        #         res="{res}",
-        #         **inputs["dwi"].wildcards,
-        #     ),
-        #     desc=list(inputs["dseg"].wildcards.get("desc", [])),
-        #     res=config["downsample_res"],
-        # ),
+        edge_tcks=inputs["dwi"].expand(
+            EDGEPAIR_TCK_TMPL,
+            res=config["downsample_res"],
+            seedmask=config["tracking"]["seedmask"],
+            select=config["tracking"]["select"],
+            algo=config["tracking"]["algo"],
+            nodes=config["connectome"]["nodes"],
+            edgepair=EDGEPAIR_STRS,
+        ),
+        meshes=inputs["dwi"].expand(
+            bids(
+                root=root,
+                suffix="dseg.obj",
+                datatype="dwi",
+                res="{res}",
+                **inputs["dwi"].wildcards,
+            ),
+            nodes=config["connectome"]["nodes"],
+            res=config["downsample_res"],
+        ),
 
 
 
@@ -200,6 +227,7 @@ rule anat2dwi_reg:
         export ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS={threads}
 
         mkdir -p "$(dirname "{params.out_prefix}")"
+        echo "created $(dirname "{params.out_prefix}")"
 
         antsRegistrationSyN.sh \
             -d 3 \
@@ -251,6 +279,7 @@ rule anat2dwi_apply:
         r"""
         export ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS={threads}
         mkdir -p {params.out_dir}
+        echo "created {params.out_dir}"
 
         antsApplyTransforms -v -d 3 -n Linear \
           -i {input.t1w} -r {input.ref} \
@@ -283,7 +312,7 @@ rule brain_mask:
             **(lambda d: (d.pop("desc", None), d)[1])(dict(inputs["dwi"].wildcards)),
         ),
     shell:
-        "c3d {input.t1w_in_dwi} -otsu 3 -binarize -erode 3 1x1x1vox -o {output.mask}"
+        "c3d {input.t1w_in_dwi} -otsu 3 -binarize -o {output.mask}"
 
 
 rule downsample_mask:
@@ -671,46 +700,84 @@ rule tck2connectome:
 
 
 
-rule connectome2tck:
+# rule connectome2tck:
+#     input:
+#         tck=bids(
+#             root=root,
+#             suffix="tracks.tck",
+#             res="{res}",
+#             seedmask="{seedmask}",
+#             algo="{algo}",
+#             select="{select}",
+#             datatype="dwi",
+#             **inputs["dwi"].wildcards,
+#         ),
+#         assignments=bids(
+#             root=root,
+#             suffix="assignments.txt",
+#             res="{res}",
+#             seedmask="{seedmask}",
+#             algo="{algo}",
+#             select="{select}",
+#             nodes="{desc}",
+#             datatype="dwi",
+#             **inputs["dwi"].wildcards,
+#         ),
+#     params:
+#         bundle_prefix = lambda wildcards, output: str(Path(output.bundle_dir) / 'bundles_')
+#     output:
+#         bundle_dir=directory(bids(
+#             root=root,
+#             suffix="bundles",
+#             res="{res}",
+#             seedmask="{seedmask}",
+#             algo="{algo}",
+#             select="{select}",
+#             nodes="{desc}",
+#             datatype="dwi",
+#             **inputs["dwi"].wildcards,
+#         )),
+#     shell:
+#         "mkdir -p {output.bundle_dir} && "
+#         "connectome2tck {input.tck} {input.assignments} {params.bundle_prefix}"
+
+rule connectome2tck_edgepair:
     input:
         tck=bids(
-            root=root,
-            suffix="tracks.tck",
-            res="{res}",
-            seedmask="{seedmask}",
-            algo="{algo}",
-            select="{select}",
-            datatype="dwi",
-            **inputs["dwi"].wildcards,
+            root=root, suffix="tracks.tck",
+            res="{res}", seedmask="{seedmask}", algo="{algo}", select="{select}",
+            datatype="dwi", **inputs["dwi"].wildcards,
         ),
         assignments=bids(
-            root=root,
-            suffix="assignments.txt",
-            res="{res}",
-            seedmask="{seedmask}",
-            algo="{algo}",
-            select="{select}",
+            root=root, suffix="assignments.txt",
+            res="{res}", seedmask="{seedmask}", algo="{algo}", select="{select}",
             nodes="{desc}",
-            datatype="dwi",
-            **inputs["dwi"].wildcards,
+            datatype="dwi", **inputs["dwi"].wildcards,
         ),
     params:
-        bundle_prefix = lambda wildcards, output: str(Path(output.bundle_dir) / 'bundles_')
-    output:
-        bundle_dir=directory(bids(
-            root=root,
-            suffix="bundles",
-            res="{res}",
-            seedmask="{seedmask}",
-            algo="{algo}",
-            select="{select}",
+        nodes=lambda wc: wc.edgepair.replace("-", ","),
+        out_dir=bids(
+            root=root, suffix="edgepairs",
+            res="{res}", seedmask="{seedmask}", algo="{algo}", select="{select}",
             nodes="{desc}",
-            datatype="dwi",
-            **inputs["dwi"].wildcards,
-        )),
+            datatype="dwi", **inputs["dwi"].wildcards,
+        ),
+    output:
+        tck=str(Path(
+            bids(
+                root=root, suffix="edgepairs",
+                res="{res}", seedmask="{seedmask}", algo="{algo}", select="{select}",
+                nodes="{desc}",
+                datatype="dwi", **inputs["dwi"].wildcards,
+            )
+        ) / "edge-{edgepair}.tck"),
     shell:
-        "mkdir -p {output.bundle_dir} && "
-        "connectome2tck {input.tck} {input.assignments} {params.bundle_prefix}"
+        r"""
+        mkdir -p {params.out_dir}
+        connectome2tck {input.tck} {input.assignments} {output.tck} \
+          -nodes {params.nodes} -exclusive -files single
+        """
+
 
 
 rule connectome2tck_exemplars:
@@ -767,9 +834,8 @@ rule label2mesh:
         dseg=rules.anat2dwi_apply.output.dseg_in_dwi,
     output:
         dseg=bids(
-            root=root, suffix="dseg.obj",desc="{desc}", res="{res}",
+            root=root, suffix="dseg.obj", res="{res}",
             datatype="dwi", **inputs["dwi"].wildcards
-
         ),
     shell:
         "label2mesh {input} {output}"

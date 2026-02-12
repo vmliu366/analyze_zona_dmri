@@ -54,18 +54,18 @@ downsample_res:
 #  - 0p4mm
   - 0p5mm
   - 1mm
-  - 1p25mm
+#  - 1p25mm
   - 1p5mm
   - 2mm
 
 tracking:
   seedmask:
     - brain
-#    - thFA0p3
+    - thFA0p3
   select: 
     - 5000
   algo:
-#    - det
+    - det
     - prob
 
 
@@ -89,3 +89,5 @@ clustering:
 connectome:
   nodes: 
     - GM
+  node_start: [4,5]
+  node_end: [222, 283, 314, 350, 381, 382]
