@@ -7,7 +7,7 @@ configfile: "config.yml"
 
 inputs = generate_inputs(
     bids_dir=config["bids_dir"], pybids_inputs=config["pybids_inputs"],
-    derivatives=config["derivatives"]
+    derivatives=config["derivatives"],
 )
 
 
@@ -42,9 +42,11 @@ rule all:
                 root=root,
                 suffix="{metric}.nii",
                 datatype="dwi",
+                res="{res}",
                 **inputs["dwi"].wildcards,
             ),
             metric=["FA", "ADC", "AD", "RD", "V1", "V2", "V3"],
+            res=config["downsample_res"],
         ),
         tracks=inputs["dwi"].expand(
             bids(
@@ -81,6 +83,36 @@ rule all:
             nodes=config['connectome']['nodes'],
 
         ),
+        # bundles=inputs["dwi"].expand(
+        #     bids(
+        #         root=root,
+        #         suffix="bundles",
+        #         res="{res}",
+        #         seedmask="{seedmask}",
+        #         algo="{algo}",
+        #         select="{select}",
+        #         nodes="NextBrain",
+        #         datatype="dwi",
+        #         **inputs["dwi"].wildcards,
+        #     ),
+        #     res=config["downsample_res"],
+        #     seedmask=config["tracking"]["seedmask"],
+        #     algo=config["tracking"]["algo"],
+        #     select=config["tracking"]["select"],
+        #     desc=list(inputs["dseg"].wildcards.get("desc", [])),
+        # ),
+        # meshes=inputs["dwi"].expand(
+        #     bids(
+        #         root=root,
+        #         suffix="dseg.obj",
+        #         datatype="dwi",
+        #         desc="{desc}",
+        #         res="{res}",
+        #         **inputs["dwi"].wildcards,
+        #     ),
+        #     desc=list(inputs["dseg"].wildcards.get("desc", [])),
+        #     res=config["downsample_res"],
+        # ),
 
 
 
@@ -133,20 +165,125 @@ rule dwi2tensor_unmasked:
     shell:
         "dwi2tensor {input} -b0 {output.b0} {output.dt}"
 
+rule anat2dwi_reg:
+    """
+    Create transforms from subject anat space (T1w) to subject DWI b0 space
+    using antsRegistration (affine-only)
+    """
+    input:
+        fixed=bids(root=root, suffix="b0.nii", datatype="dwi", **inputs["dwi"].wildcards),
+        moving=inputs["t1w"].path,
+    params:
+        out_prefix=bids(
+            root=root,
+            datatype="dwi",
+            desc="from-T1w_to-dwi",
+            suffix="",
+            extension="",
+            **inputs["dwi"].wildcards,
+        ),
+    output:
+        affine=bids(
+            root=root,
+            datatype="dwi",
+            desc="from-T1w_to-dwi",
+            suffix="0GenericAffine",
+            extension=".mat",
+            **inputs["dwi"].wildcards,
+        ),
+    threads: 4
+    resources:
+        mem_mb=16000,
+        time=60,
+    shell:
+        r"""
+        export ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS={threads}
+
+        mkdir -p "$(dirname "{params.out_prefix}")"
+
+        antsRegistrationSyN.sh \
+            -d 3 \
+            -f {input.fixed} \
+            -m {input.moving} \
+            -o {params.out_prefix} \
+            -t r \
+            -n {threads}
+        """
+
+
+rule anat2dwi_apply:
+    """
+    Apply calculated affine to T1w (Linear) and dseg (MultiLabel)
+    """
+    input:
+        t1w=inputs["t1w"].path,
+        dseg=inputs["dseg"].path,
+        ref=bids(root=root, suffix="b0.nii", datatype="dwi", **inputs["dwi"].wildcards),
+        affine=rules.anat2dwi_reg.output.affine,
+    params:
+        out_dir=lambda wildcards: str(Path(bids(
+            root=root, datatype="anat", space="dwi",
+            suffix="T1w", extension=".nii.gz",
+            **inputs["dwi"].wildcards
+        )).parent),
+    output:
+        t1w_in_dwi=bids(
+            root=root,
+            datatype="anat",
+            space="dwi",
+            suffix="T1w",
+            extension=".nii.gz",
+            **inputs["dwi"].wildcards,
+        ),
+        dseg_in_dwi=bids(
+            root=root,
+            datatype="anat",
+            space="dwi",
+            suffix="dseg",
+            extension=".nii.gz",
+            **inputs["dwi"].wildcards,
+        ),
+    threads: 4
+    resources:
+        mem_mb=16000,
+        time=30,
+    shell:
+        r"""
+        export ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS={threads}
+        mkdir -p {params.out_dir}
+
+        antsApplyTransforms -v -d 3 -n Linear \
+          -i {input.t1w} -r {input.ref} \
+          -t {input.affine} \
+          -o {output.t1w_in_dwi}
+
+        antsApplyTransforms -v -d 3 -n MultiLabel \
+          -i {input.dseg} -r {input.ref} \
+          -t {input.affine} \
+          -o {output.dseg_in_dwi}
+        """
 
 rule brain_mask:
     input:
-        b0=bids(root=root, suffix="b0.nii", datatype="dwi", **inputs["dwi"].wildcards),
+        t1w_in_dwi=bids(
+            root=root,
+            datatype="anat",
+            space="dwi",
+            suffix="T1w",
+            extension=".nii.gz",
+            **inputs["dwi"].wildcards,
+        ),
     output:
         mask=bids(
             root=root,
             suffix="mask.nii",
             desc="brain",
             datatype="dwi",
-            **inputs["dwi"].wildcards,
+            # **inputs["dwi"].wildcards,
+            **(lambda d: (d.pop("desc", None), d)[1])(dict(inputs["dwi"].wildcards)),
         ),
     shell:
-        "c3d {input} -otsu 3 -binarize {output}"
+        "c3d {input.t1w_in_dwi} -otsu 3 -binarize -erode 3 1x1x1vox -o {output.mask}"
 
 
 rule downsample_mask:
@@ -468,26 +605,23 @@ rule pca_kmeans:
 
 
 #-- dseg labels
+# rule reslice_dseg_to_dwi:
+#     """ uses existing itksnap rigid transform, may need non-linear for best match"""
+#     input:
+#         dseg = inputs['dseg'].path,
+#         xfm = inputs['xfm_to_dwi'].path,
+#         ref=bids(
+#             root=root, suffix="FA.nii", res="{res}",
+#             datatype="dwi", **inputs["dwi"].wildcards
+#         ),
 
-
-
-rule reslice_dseg_to_dwi:
-    """ uses existing itksnap rigid transform, may need non-linear for best match"""
-    input:
-        dseg = inputs['dseg'].path,
-        xfm = inputs['xfm_to_dwi'].path,
-        ref=bids(
-            root=root, suffix="FA.nii", res="{res}",
-            datatype="dwi", **inputs["dwi"].wildcards
-        ),
-
-    output:
-        dseg=bids(
-            root=root, suffix="dseg.nii.gz",desc="{desc}", res="{res}",
-            datatype="dwi", **inputs["dwi"].wildcards
-        ),
-    shell:
-        "antsApplyTransforms -d 3 -n NearestNeighbor -i {input.dseg} -t {input.xfm} -r {input.ref} -o {output.dseg} -u int"
+#     output:
+#         dseg=bids(
+#             root=root, suffix="dseg.nii.gz",desc="{desc}", res="{res}",
+#             datatype="dwi", **inputs["dwi"].wildcards
+#         ),
+#     shell:
+#         # "antsApplyTransforms -d 3 -n NearestNeighbor -i {input.dseg} -t {input.xfm} -r {input.ref} -o {output.dseg} -u int"
 
 
 rule tck2connectome:
@@ -502,10 +636,12 @@ rule tck2connectome:
             datatype="dwi",
             **inputs["dwi"].wildcards,
         ),
-        dseg=bids(
-            root=root, suffix="dseg.nii.gz",desc="{desc}", res="{res}",
-            datatype="dwi", **inputs["dwi"].wildcards
-        ),
+        # dseg=bids(
+        #     root=root, suffix="dseg.nii.gz",desc="{desc}", res="{res}",
+        #     datatype="dwi", **inputs["dwi"].wildcards
+        # ),
+        dseg=rules.anat2dwi_apply.output.dseg_in_dwi,
+        
     output:
         connectome=bids(
             root=root,
@@ -531,7 +667,7 @@ rule tck2connectome:
         ),
 
     shell:
-        "tck2connectome {input.tck} {input.dseg} {output.connectome} -out_assignments {output.assignments}"
+        "tck2connectome {input.tck} {input.dseg} {output.connectome} -out_assignments {output.assignments} -assignment_radial_search 1"
 
 
 
@@ -600,10 +736,11 @@ rule connectome2tck_exemplars:
             datatype="dwi",
             **inputs["dwi"].wildcards,
         ),
-        dseg=bids(
-            root=root, suffix="dseg.nii.gz",desc="{desc}", res="{res}",
-            datatype="dwi", **inputs["dwi"].wildcards
-        ),
+        # dseg=bids(
+        #     root=root, suffix="dseg.nii.gz",desc="{desc}", res="{res}",
+        #     datatype="dwi", **inputs["dwi"].wildcards
+        # ),
+        dseg=rules.anat2dwi_apply.output.dseg_in_dwi,
 
     output:
         exemplars=bids(
@@ -623,10 +760,11 @@ rule connectome2tck_exemplars:
         
 rule label2mesh:
     input:
-        dseg=bids(
-            root=root, suffix="dseg.nii.gz",desc="{desc}", res="{res}",
-            datatype="dwi", **inputs["dwi"].wildcards
-        ),
+        # dseg=bids(
+        #     root=root, suffix="dseg.nii.gz",desc="{desc}", res="{res}",
+        #     datatype="dwi", **inputs["dwi"].wildcards
+        # ),
+        dseg=rules.anat2dwi_apply.output.dseg_in_dwi,
     output:
         dseg=bids(
             root=root, suffix="dseg.obj",desc="{desc}", res="{res}",

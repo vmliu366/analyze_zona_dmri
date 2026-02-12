@@ -4,8 +4,17 @@ derivatives:
  - transforms
 
 
-
 pybids_inputs:
+  t1w:
+    filters:
+      suffix: T2starw
+      extension: .nii.gz
+      datatype: anat
+      subject: CAD02
+      run: 1
+    wildcards:
+      - subject
+      - session
   dwi:
     filters:
       suffix: dwi
@@ -22,21 +31,22 @@ pybids_inputs:
       extension: .nii.gz
       datatype: anat
       space: T2starw
+      desc: NextBrain
     wildcards: 
       - subject
       - session
-      - desc
-  xfm_to_dwi:
-    filters:
-      suffix: xfm
-      extension: .txt
-      datatype: dwi
-      from: T2starw
-      to: dwi
-      desc: itk
-    wildcards: 
-      - subject
-      - session
+
+  # xfm_to_dwi:
+  #   filters:
+  #     suffix: xfm
+  #     extension: .txt
+  #     datatype: dwi
+  #     from: T2starw
+  #     to: dwi
+  #     desc: itk
+  #   wildcards: 
+  #     - subject
+  #     - session
 
 
 downsample_res:
@@ -55,8 +65,8 @@ tracking:
   select: 
     - 5000
   algo:
-    - det
-#    - prob
+#    - det
+    - prob
 
 
 clustering:
