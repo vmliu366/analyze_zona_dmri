@@ -7,11 +7,12 @@ derivatives:
 pybids_inputs:
   t1w:
     filters:
-      suffix: T2starw
+      suffix: MEGRE # change
       extension: .nii.gz
       datatype: anat
-      subject: CAD02
+      subject: CAD01 # change
       run: 1
+      echo: 3 # change
     wildcards:
       - subject
       - session
@@ -20,7 +21,7 @@ pybids_inputs:
       suffix: dwi
       extension: .nii.gz
       datatype: dwi
-      subject: CAD02
+      subject: CAD01 # change
       desc: eddy
     wildcards: 
       - subject
@@ -30,7 +31,7 @@ pybids_inputs:
       suffix: dseg
       extension: .nii.gz
       datatype: anat
-      space: T2starw
+      space: T1w # change
       desc: NextBrain
     wildcards: 
       - subject
@@ -90,5 +91,5 @@ clustering:
 connectome:
   nodes: 
     - GM
-  node_start: [4,5]
+  node_start: [8,16,18] # CAD01: GPi,ZI,VTA
   node_end: [222, 283, 314, 350, 381, 382]

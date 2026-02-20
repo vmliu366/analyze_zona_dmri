@@ -102,24 +102,6 @@ rule all:
             nodes=config['connectome']['nodes'],
 
         ),
-        # bundles=inputs["dwi"].expand(
-        #     bids(
-        #         root=root,
-        #         suffix="bundles",
-        #         datatype="dwi",
-        #         res="{res}",
-        #         seedmask="{seedmask}",
-        #         algo="{algo}",
-        #         select="{select}",
-        #         nodes="{nodes}",
-        #         **inputs["dwi"].wildcards,
-        #     ),
-        #     res=config["downsample_res"],
-        #     seedmask=config["tracking"]["seedmask"],
-        #     select=config["tracking"]["select"],
-        #     algo=config["tracking"]["algo"],
-        #     nodes=config["connectome"]["nodes"],
-        # ),
         edge_tcks=inputs["dwi"].expand(
             EDGEPAIR_TCK_TMPL,
             res=config["downsample_res"],
@@ -140,6 +122,28 @@ rule all:
             nodes=config["connectome"]["nodes"],
             res=config["downsample_res"],
         ),
+        pca_labels=inputs["dwi"].expand(
+            bids(
+                root=root,
+                suffix="streamlabels.txt",
+                res="{res}",
+                seedmask="{seedmask}",
+                algo="{algo}",
+                select="{select}",
+                points="{points}",
+                desc="pcakmeans",
+                scalargroup="{scalargroup}",
+                datatype="dwi",
+                **inputs["dwi"].wildcards,
+            ),
+            res=config["downsample_res"],
+            seedmask=config["tracking"]["seedmask"],
+            select=config["tracking"]["select"],
+            algo=config["tracking"]["algo"],
+            points=config["clustering"]["points"],
+            scalargroup=config["clustering"]["scalargroups"].keys(),
+        ),
+
 
 
 
